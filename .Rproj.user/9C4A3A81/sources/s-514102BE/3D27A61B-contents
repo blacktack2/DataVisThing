@@ -1,0 +1,50 @@
+library("shiny")
+library("jsonlite")
+library("anytime")
+library("dplyr")
+library("ggplot2")
+library("sf")
+library("tidyr")
+
+
+# Load data from json file 'file' into a flat dataframe
+load_data <- function(file) {
+  return(fromJSON(file, simplifyDataFrame = TRUE, flatten = TRUE));
+}
+
+# Load and combine all json datasets into a single dataframe
+df_raw <- load_data("cleaned/1656633600.json")
+df_raw <- bind_rows(df_raw, load_data("cleaned/1656720000.json"))
+df_raw <- bind_rows(df_raw, load_data("cleaned/1656806400.json"))
+df_raw <- bind_rows(df_raw, load_data("cleaned/1656892800.json"))
+df_raw <- bind_rows(df_raw, load_data("cleaned/1656979200.json"))
+
+# Parse data and rename headers
+df <- as.data.frame(df_raw %>% unnest(c())) # Flatten nested structure (payload)
+names(df) <- c("timestamp", "dtype", "light", "x", "y", "z", "f", "wtype", "name", "addr", "rssi", "lat", "lon")
+df$timestamp <- anytime(df$timestamp)
+
+# Remove all columns with only NA and the type column
+clean_columns <- function(df) {
+  cleaned <- Filter(function(x)!all(is.na(x)), df)
+  cleaned <- subset(cleaned, select = -c(dtype))
+  return(cleaned)
+}
+
+# Split data into it's different types
+light    <- clean_columns(subset(df, dtype == "light"))
+movement <- clean_columns(subset(df, dtype == "movement"))
+wireless <- clean_columns(subset(df, dtype == "wireless"))
+sound    <- clean_columns(subset(df, dtype == "sound"))
+gps      <- clean_columns(subset(df, dtype == "gps"))
+
+
+ui <- fluidPage(
+  
+)
+
+server <- function(input, output) {
+  
+}
+
+shinyApp(ui = ui, server = server)
