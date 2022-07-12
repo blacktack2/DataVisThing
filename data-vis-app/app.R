@@ -8,6 +8,7 @@ library("dplyr")
 library("ggplot2")
 #library("sf")
 library("tidyr")
+library("data.table")
 
 
 # Load data from json file 'file' into a flat dataframe
@@ -16,42 +17,25 @@ load_data <- function(file) {
 }
 
 # Load and combine all json datasets into a single dataframe
-dataFiles <- list.files("cleaned", "*.json", full.names = TRUE)
-
-# print(paste("Reading data from:", dataFiles[1]))
-# df_raw <- load_data(dataFiles[1])
-# for (i in 2:length(dataFiles)) {
-#   print(paste("Reading data from:", dataFiles[i]))
-#   bind_rows(df_raw, load_data(dataFiles[i]))
-# }
-
-df_raw <- load_data("../cleaned/1657584000.json")
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1656633600.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1656720000.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1656806400.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1656892800.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1656979200.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1657065600.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1657152000.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1657238400.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1657324800.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1657411200.json"))
-df_raw <- bind_rows(df_raw, load_data("../cleaned/1657497600.json"))
-
-# Parse data and rename headers
+dataFiles <- list.files("../cleaned", "*.json", full.names = TRUE)
+print(dataFiles)
+df_raw <-bind_rows(lapply(dataFiles, load_data))
 df <- as.data.frame(df_raw %>% unnest(c())) # Flatten nested structure (payload)
-print(names(df))
-#quit()
+df <- data.frame(matrix(ncol = 13, nrow=0))
+# Parse data and rename headers
+df <- bind_rows(as.data.frame(df_raw %>% unnest(c()))) # Flatten nested structure (payload)
 names(df) <- c("timestamp", "dtype", "light", "x", "y", "z", "f", "wtype", "name", "addr", "rssi", "lat", "lon")
+print(names(df))
+# quit()
 df$timestamp <- anytime(df$timestamp)
-
+print("b")
 # Remove all columns with only NA and the type column
 clean_columns <- function(df) {
   cleaned <- Filter(function(x)!all(is.na(x)), df)
   cleaned <- subset(cleaned, select = -c(dtype))
   return(cleaned)
 }
-
+print("c")
 # Split data into it's different types
 light    <- clean_columns(subset(df, dtype == "light"))
 movement <- clean_columns(subset(df, dtype == "movement"))
@@ -59,7 +43,7 @@ wireless <- clean_columns(subset(df, dtype == "wireless"))
 sound    <- clean_columns(subset(df, dtype == "sound"))
 gps      <- clean_columns(subset(df, dtype == "gps"))
 
-
+print("d")
 ui <- fluidPage(
   useShinyjs(),
   titlePanel("Data Vis"),
