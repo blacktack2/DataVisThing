@@ -6,36 +6,49 @@ library("jsonlite")
 library("anytime")
 library("dplyr")
 library("ggplot2")
-#library("sf")
 library("tidyr")
 library("data.table")
-
 
 # Load data from json file 'file' into a flat dataframe
 load_data <- function(file) {
   return(fromJSON(file, simplifyDataFrame = TRUE, flatten = TRUE));
 }
 
+print("Loading Data...")
+
 # Load and combine all json datasets into a single dataframe
 dataFiles <- list.files("../cleaned", "*.json", full.names = TRUE)
-print(dataFiles)
-df_raw <-bind_rows(lapply(dataFiles, load_data))
-df <- as.data.frame(df_raw %>% unnest(c())) # Flatten nested structure (payload)
-df <- data.frame(matrix(ncol = 13, nrow=0))
-# Parse data and rename headers
-df <- bind_rows(as.data.frame(df_raw %>% unnest(c()))) # Flatten nested structure (payload)
-names(df) <- c("timestamp", "dtype", "light", "x", "y", "z", "f", "wtype", "name", "addr", "rssi", "lat", "lon")
-print(names(df))
-# quit()
+
+print(paste("-Reading from files:", toString(dataFiles)))
+
+df_raw <- bind_rows(lapply(dataFiles, load_data))
+
+print(paste("-Raw data read with", ncol(df_raw), "columns:", toString(names(df_raw))))
+
+print("Cleaning Data...")
+
+print("-Renaming columns...")
+
+df <- df_raw %>% rename(timestamp=timestamp, dtype=type,
+                    light=payload.light,
+                    x=payload.x, y=payload.y, z=payload.z, f=payload.f,
+                    wtype=payload.type, name=payload.name, addr=payload.addr, rssi=payload.rssi,
+                    lat=payload.lat, lon=payload.lon)
+
+print(paste("--Columns renamed to:", toString(names(df))))
+print("-Casting data to correct types...")
+
 df$timestamp <- anytime(df$timestamp)
-print("b")
+
+print("--Timestamps converted from unix epoch to datetime")
+
 # Remove all columns with only NA and the type column
 clean_columns <- function(df) {
   cleaned <- Filter(function(x)!all(is.na(x)), df)
   cleaned <- subset(cleaned, select = -c(dtype))
   return(cleaned)
 }
-print("c")
+
 # Split data into it's different types
 light    <- clean_columns(subset(df, dtype == "light"))
 movement <- clean_columns(subset(df, dtype == "movement"))
@@ -43,7 +56,8 @@ wireless <- clean_columns(subset(df, dtype == "wireless"))
 sound    <- clean_columns(subset(df, dtype == "sound"))
 gps      <- clean_columns(subset(df, dtype == "gps"))
 
-print("d")
+print("Creating UI...")
+
 ui <- fluidPage(
   useShinyjs(),
   titlePanel("Data Vis"),
@@ -68,6 +82,8 @@ ui <- fluidPage(
     )
   )
 )
+
+print("Creating Server...")
 
 server <- function(input, output, session) {
   
