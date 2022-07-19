@@ -61,8 +61,10 @@ print("Creating UI...")
 ui <- fluidPage(
   useShinyjs(),
   titlePanel("Data Vis"),
-  sidebarLayout(
-    sidebarPanel(
+  
+  fluidRow(
+    column(4,
+      style = "background-color: #bbbbbb",
       fluidRow(
         actionButton("light", "Light"),
         actionButton("movement", "Movement"),
@@ -70,16 +72,22 @@ ui <- fluidPage(
         actionButton("sound", "Sound"),
         actionButton("gps", "GPS")
       ),
-      fluidRow(id = "wirelessParams",
+      fluidRow(
+        id = "wirelessParams",
+        
         selectInput("wirelessConns", "Connections", unique(wireless$name)),
         checkboxInput("wirelessAll", "Show All", value = TRUE)
       )
     ),
     
-    mainPanel(
+    column(8,
       plotOutput(outputId = "graph"),
-      leafletOutput(outputId = "mapGraph")
+      leafletOutput(outputId = "mapGraph"),
     )
+  ),
+  fluidRow(
+    style = "background-color: #ddddff",
+    tagList(a("GitHub page", href="https://github.com/blacktack2/DataVisThing"))
   )
 )
 
