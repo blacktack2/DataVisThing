@@ -8,32 +8,46 @@ library("dplyr")
 library("ggplot2")
 library("tidyr")
 library("data.table")
-
-# Load data from json file 'file' into a flat dataframe
-load_data <- function(file) {
-  return(fromJSON(file, simplifyDataFrame = TRUE, flatten = TRUE));
-}
+library("purrr")
+library("tibble")
 
 print("Loading Data...")
 
 # Load and combine all json datasets into a single dataframe
-dataFiles <- list.files("../cleaned", "*.json", full.names = TRUE)
+path = "../cleaned"
+dataFiles <- list.files(path, "*.json", full.names = TRUE)
 
 print(paste("-Reading from files:", toString(dataFiles)))
 
-df_raw <- bind_rows(lapply(dataFiles, load_data))
+df_raw <- dataFiles %>%
+  map_df(~fromJSON(file.path(path, .), flatten=TRUE))
 
 print(paste("-Raw data read with", ncol(df_raw), "columns:", toString(names(df_raw))))
+
+initial_columns = c(
+  timestamp=NA, type=NA,
+  payload.light=NA,
+  payload.x=NA, payload.y=NA, payload.z=NA, payload.f=NA,
+  payload.type=NA, payload.name=NA, payload.addr=NA, payload.rssi=NA,
+  payload.lat=NA, payload.lon=NA
+)
+
+df_raw <- df_raw %>% add_column(!!!initial_columns[setdiff(names(initial_columns), names(df_raw))])
+
+print(paste("-Added any missing columns:", toString(names(df_raw))))
 
 print("Cleaning Data...")
 
 print("-Renaming columns...")
 
-df <- df_raw %>% rename(timestamp=timestamp, dtype=type,
-                    light=payload.light,
-                    x=payload.x, y=payload.y, z=payload.z, f=payload.f,
-                    wtype=payload.type, name=payload.name, addr=payload.addr, rssi=payload.rssi,
-                    lat=payload.lat, lon=payload.lon)
+df <- df_raw %>%
+  rename(
+    timestamp=timestamp, dtype=type,
+    light=payload.light,
+    x=payload.x, y=payload.y, z=payload.z, f=payload.f,
+    wtype=payload.type, name=payload.name, addr=payload.addr, rssi=payload.rssi,
+    lat=payload.lat, lon=payload.lon
+    )
 
 print(paste("--Columns renamed to:", toString(names(df))))
 print("-Casting data to correct types...")
@@ -50,11 +64,16 @@ clean_columns <- function(df) {
 }
 
 # Split data into it's different types
-light    <- clean_columns(subset(df, dtype == "light"))
-movement <- clean_columns(subset(df, dtype == "movement"))
-wireless <- clean_columns(subset(df, dtype == "wireless"))
-sound    <- clean_columns(subset(df, dtype == "sound"))
-gps      <- clean_columns(subset(df, dtype == "gps"))
+light    <- subset(df, dtype == "light"   )[c("timestamp", "light")]
+movement <- subset(df, dtype == "movement")[c("timestamp", "x", "y", "z", "f")]
+wireless <- subset(df, dtype == "wireless")[c("timestamp", "wtype", "name", "addr", "rssi")]
+sound    <- subset(df, dtype == "sound"   )[c("timestamp", "f")]
+gps      <- subset(df, dtype == "gps"     )[c("timestamp", "lat", "lon")]
+# light    <- clean_columns(subset(df, dtype == "light"))
+# movement <- clean_columns(subset(df, dtype == "movement"))
+# wireless <- clean_columns(subset(df, dtype == "wireless"))
+# sound    <- clean_columns(subset(df, dtype == "sound"))
+# gps      <- clean_columns(subset(df, dtype == "gps"))
 
 print("Creating UI...")
 

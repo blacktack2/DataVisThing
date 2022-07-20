@@ -17,6 +17,8 @@ reinstall("anytime")
 reinstall("dplyr")
 reinstall("ggplot2")
 reinstall("tidyr")
+reinstall("purrr")
+reinstall("tibble")
 
 library("shiny")
 
