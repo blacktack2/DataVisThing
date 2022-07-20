@@ -82,27 +82,21 @@ ui <- fluidPage(
   titlePanel("Data Vis"),
   
   fluidRow(
-    column(4,
-      style = "background-color: #bbbbbb",
-      fluidRow(
-        actionButton("light", "Light"),
-        actionButton("movement", "Movement"),
-        actionButton("wireless", "Wireless"),
-        actionButton("sound", "Sound"),
-        actionButton("gps", "GPS")
-      ),
-      fluidRow(
-        id = "wirelessParams",
-        
-        selectInput("wirelessConns", "Connections", unique(wireless$name)),
-        checkboxInput("wirelessAll", "Show All", value = TRUE)
-      )
-    ),
-    
-    column(8,
-      plotOutput(outputId = "graph"),
-      leafletOutput(outputId = "mapGraph"),
+    tabsetPanel(
+      id = "plotSelect",
+      tabPanel("Light",    plotOutput("lightPlot")),
+      tabPanel("Movement", plotOutput("movementPlot")),
+      tabPanel("Wireless", plotOutput("wirelessPlot")),
+      tabPanel("Sound",    plotOutput("soundPlot")),
+      tabPanel("GPS",      leafletOutput("gpsPlot"))
     )
+  ),
+  fluidRow(
+    id = "wirelessParams",
+    style = "background-color: #bbbbbb",
+    
+    selectInput("wirelessConns", "Connections", unique(wireless$name)),
+    checkboxInput("wirelessAll", "Show All", value = TRUE)
   ),
   fluidRow(
     style = "background-color: #ddddff",
@@ -116,20 +110,12 @@ server <- function(input, output, session) {
   
   plotSelection <- reactiveValues(current = "")
   
-  observeEvent(input$light, {
-    setCurrent("light")
-  }, ignoreNULL = FALSE) # ignoreNULL set so this function is called on init
-  observeEvent(input$movement, {
-    setCurrent("movement")
-  })
-  observeEvent(input$wireless, {
-    setCurrent("wireless", FALSE, TRUE)
-  })
-  observeEvent(input$sound, {
-    setCurrent("sound")
-  })
-  observeEvent(input$gps, {
-    setCurrent("gps", TRUE)
+  observeEvent(input$plotSelect, {
+    if (input$plotSelect == "Wireless") {
+      show("wirelessParams")
+    } else {
+      hide("wirelessParams")
+    }
   })
   
   observeEvent(input$wirelessAll, {
@@ -140,59 +126,17 @@ server <- function(input, output, session) {
     }
   })
   
-  output$graph <- renderPlot({
-    switch(
-      plotSelection$current,
-      "light"    = lightGraph(),
-      "movement" = movementGraph(),
-      "wireless" = wirelessGraph(),
-      "sound"    = soundGraph(),
-      "gps"      = NULL
-    )
-  })
-  output$mapGraph <- renderLeaflet({
-    switch(
-      plotSelection$current,
-      "light"    = NULL,
-      "movement" = NULL,
-      "wireless" = NULL,
-      "sound"    = NULL,
-      "gps"      = gpsGraph()
-    )
-  })
-  
-  # Switch between different graph views
-  setCurrent <- function(newCurrent, mapGraph = FALSE, connectionRow = FALSE) {
-    enable(plotSelection$current)
-    disable(newCurrent)
-    plotSelection$current = newCurrent
-    
-    if (mapGraph) {
-      hide("graph")
-      show("mapGraph")
-    } else {
-      show("graph")
-      hide("mapGraph")
-    }
-    
-    if (connectionRow) {
-      show("wirelessParams")
-    } else {
-      hide("wirelessParams")
-    }
-  }
-  
-  lightGraph <- function() {
+  output$lightPlot <- renderPlot({
     ggplot(data=light, aes(x=timestamp, y=light, group=1)) +
       geom_line() +
       scale_x_datetime(date_breaks = "6 hours", date_labels = "%d/%m/%Y %H:%M") +
       theme(axis.text.x = element_text(angle = 90))
-  }
-  movementGraph <- function() {
+  })
+  output$movementPlot <- renderPlot({
     ggplot(data=movement, aes(x=timestamp, y=f)) +
       geom_line()
-  }
-  wirelessGraph <- function() {
+  })
+  output$wirelessPlot <- renderPlot({
     if (input$wirelessAll) {
       data <- group_by(wireless, name)
       ggplot(data=data, aes(x=timestamp, y=rssi, color=name)) +
@@ -202,19 +146,19 @@ server <- function(input, output, session) {
       ggplot(data=data, aes(x=timestamp, y=rssi)) +
         {if(nrow(data) > 1) geom_line() else geom_point()}
     }
-  }
-  soundGraph <- function() {
+  })
+  output$soundPlot <- renderPlot({
     ggplot(data=sound, aes(x=timestamp, y=f, group=1)) +
       geom_line() +
       scale_x_datetime(date_breaks = "6 hours", date_labels = "%d/%m/%Y %H:%M") +
       theme(axis.text.x = element_text(angle = 90)) +
       ylab("Frequency (Hz) ((this might be wrong))")
-  }
-  gpsGraph <- function() {
+  })
+  output$gpsPlot <- renderLeaflet({
     leaflet(data = gps) %>%
       addTiles() %>%
       addMarkers(popup = ~as.character(timestamp), label = ~as.character(timestamp))
-  }
+  })
 }
 
 shinyApp(ui = ui, server = server)
