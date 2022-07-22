@@ -8,6 +8,8 @@ reinstall <- function(package) {
   }
 }
 
+print("Updating Libraries...")
+
 reinstall("shiny")
 reinstall("shinyjs")
 reinstall("leaflet")
@@ -21,6 +23,8 @@ reinstall("purrr")
 reinstall("tibble")
 
 library("shiny")
+
+print("Initializing App...")
 
 options(shiny.host = "0.0.0.0")
 options(shiny.port = 8000)

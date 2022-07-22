@@ -69,11 +69,17 @@ movement <- subset(df, dtype == "movement")[c("timestamp", "x", "y", "z", "f")]
 wireless <- subset(df, dtype == "wireless")[c("timestamp", "wtype", "name", "addr", "rssi")]
 sound    <- subset(df, dtype == "sound"   )[c("timestamp", "f")]
 gps      <- subset(df, dtype == "gps"     )[c("timestamp", "lat", "lon")]
-# light    <- clean_columns(subset(df, dtype == "light"))
-# movement <- clean_columns(subset(df, dtype == "movement"))
-# wireless <- clean_columns(subset(df, dtype == "wireless"))
-# sound    <- clean_columns(subset(df, dtype == "sound"))
-# gps      <- clean_columns(subset(df, dtype == "gps"))
+
+# Global convenience variables for the data
+get_bounds <- function(collection) {
+  return(if (length(collection) < 1) c(0, 0) else c(min(collection), max(collection)))
+}
+
+lightTSBounds    <- get_bounds(light$timestamp)
+movementTSBounds <- get_bounds(movement$timestamp)
+wirelessTSBounds <- get_bounds(wireless$timestamp)
+soundTSBounds    <- get_bounds(sound$timestamp)
+gpsTSBounds      <- get_bounds(gps$timestamp)
 
 print("Creating UI...")
 
@@ -92,11 +98,52 @@ ui <- fluidPage(
     )
   ),
   fluidRow(
+    id = "lightParams",
+    style = "background-color: #bbbbbb",
+    
+    sliderInput("lightDateRange", "Date range:",
+                min = lightTSBounds[1], max = lightTSBounds[2],
+                value = lightTSBounds,
+                timeFormat = "%Y-%m-%d %H:%M:%S")
+  ),
+  fluidRow(
+    id = "movementParams",
+    style = "background-color: #bbbbbb",
+    
+    sliderInput("movementDateRange", "Date range:",
+                min = movementTSBounds[1], max = movementTSBounds[2],
+                value = movementTSBounds,
+                timeFormat = "%Y-%m-%d %H:%M:%S")
+  ),
+  fluidRow(
     id = "wirelessParams",
     style = "background-color: #bbbbbb",
     
+    sliderInput("wirelessDateRange", "Date range:",
+                min = wirelessTSBounds[1], max = wirelessTSBounds[2],
+                value = wirelessTSBounds,
+                timeFormat = "%Y-%m-%d %H:%M:%S"),
+    
     selectInput("wirelessConns", "Connections", unique(wireless$name)),
     checkboxInput("wirelessAll", "Show All", value = TRUE)
+  ),
+  fluidRow(
+    id = "soundParams",
+    style = "background-color: #bbbbbb",
+    
+    sliderInput("soundDateRange", "Date range:",
+                min = soundTSBounds[1], max = soundTSBounds[2],
+                value = soundTSBounds,
+                timeFormat = "%Y-%m-%d %H:%M")
+  ),
+  fluidRow(
+    id = "gpsParams",
+    style = "background-color: #bbbbbb",
+    
+    sliderInput("gpsDateRange", "Date range:",
+                min = gpsTSBounds[1], max = gpsTSBounds[2],
+                value = gpsTSBounds,
+                timeFormat = "%Y-%m-%d %H:%M:%S")
   ),
   fluidRow(
     style = "background-color: #ddddff",
@@ -108,13 +155,31 @@ print("Creating Server...")
 
 server <- function(input, output, session) {
   
-  plotSelection <- reactiveValues(current = "")
-  
   observeEvent(input$plotSelect, {
+    if (input$plotSelect == "Light") {
+      show("lightParams")
+    } else {
+      hide("lightParams")
+    }
+    if (input$plotSelect == "Movement") {
+      show("movementParams")
+    } else {
+      hide("movementParams")
+    }
     if (input$plotSelect == "Wireless") {
       show("wirelessParams")
     } else {
       hide("wirelessParams")
+    }
+    if (input$plotSelect == "Sound") {
+      show("soundParams")
+    } else {
+      hide("soundParams")
+    }
+    if (input$plotSelect == "GPS") {
+      show("gpsParams")
+    } else {
+      hide("gpsParams")
     }
   })
   
@@ -127,39 +192,64 @@ server <- function(input, output, session) {
   })
   
   output$lightPlot <- renderPlot({
-    ggplot(data=light, aes(x=timestamp, y=light, group=1)) +
-      geom_line() +
-      scale_x_datetime(date_breaks = "6 hours", date_labels = "%d/%m/%Y %H:%M") +
-      theme(axis.text.x = element_text(angle = 90))
+    line_graph(light, input$lightDateRange, aes(x = timestamp, y = light), FALSE)
   })
   output$movementPlot <- renderPlot({
-    ggplot(data=movement, aes(x=timestamp, y=f)) +
-      geom_line()
+    line_graph(movement, input$movementDateRange, aes(x = timestamp, y = f), FALSE)
   })
   output$wirelessPlot <- renderPlot({
+    data <- NULL
+    color <- NULL 
     if (input$wirelessAll) {
       data <- group_by(wireless, name)
-      ggplot(data=data, aes(x=timestamp, y=rssi, color=name)) +
-        {if(nrow(data) > 1) geom_line() else geom_point()}
+      color <- wireless$name
     } else {
       data <- subset(wireless, name == input$wirelessConns)
-      ggplot(data=data, aes(x=timestamp, y=rssi)) +
-        {if(nrow(data) > 1) geom_line() else geom_point()}
     }
+    
+    line_graph(data, input$wirelessDateRange, aes(x = timestamp, y = rssi, color = color), (nrow(data) == 1))
   })
   output$soundPlot <- renderPlot({
-    ggplot(data=sound, aes(x=timestamp, y=f, group=1)) +
-      geom_line() +
-      scale_x_datetime(date_breaks = "6 hours", date_labels = "%d/%m/%Y %H:%M") +
-      theme(axis.text.x = element_text(angle = 90)) +
-      ylab("Frequency (Hz) ((this might be wrong))")
+    line_graph(sound, input$soundDateRange, aes(x = timestamp, y = f), FALSE) +
+      ylab("Frequency (Hz)")
   })
+  
   output$gpsPlot <- renderLeaflet({
-    leaflet(data = gps) %>%
+    # Base map - Markers can be found in observer below
+    bounds <- if (nrow(gps) > 1) c(min(gps$lon), min(gps$lat), max(gps$lon), max(gps$lat)) else c(-180, -90, 180, 90)
+    leaflet() %>%
       addTiles() %>%
-      addMarkers(popup = ~as.character(timestamp), label = ~as.character(timestamp))
+      fitBounds(bounds[1], bounds[2], bounds[3], bounds[4])
   })
+  
+  observe({
+    if (input$plotSelect == "GPS") {
+      data <- subset(gps, as.POSIXct.Date(timestamp) %between%
+                          as.POSIXct.Date(input$gpsDateRange, "UTC"))
+
+      if (nrow(data) > 0) {
+        leafletProxy("gpsPlot") %>%
+          clearMarkers() %>%
+          addMarkers(~lon, ~lat, data=data,
+                     popup = ~as.character(timestamp),
+                     label = ~as.character(timestamp))
+      } else {
+        leafletProxy("gpsPlot") %>%
+          clearMarkers()
+      }
+    }
+  })
+  
+  line_graph <- function(data, range, aes, as_point) {
+    return(ggplot(data = data, aes) +
+      {if(as_point) geom_point() else geom_line()} +
+      scale_x_datetime(limits = range,
+                       breaks = seq(range[1], range[2], length.out = 8)) +
+      theme(axis.text.x = element_text(angle = 30, hjust = 1)))
+  }
 }
+
+print("Starting App...")
 
 shinyApp(ui = ui, server = server)
 
