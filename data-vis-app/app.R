@@ -97,53 +97,67 @@ ui <- fluidPage(
       tabPanel("GPS",      leafletOutput("gpsPlot"))
     )
   ),
-  fluidRow(
-    id = "lightParams",
-    style = "background-color: #bbbbbb",
-    
-    sliderInput("lightDateRange", "Date range:",
-                min = lightTSBounds[1], max = lightTSBounds[2],
-                value = lightTSBounds,
-                timeFormat = "%Y-%m-%d %H:%M:%S")
+  conditionalPanel(
+    condition = "plotSelect == 'Light'",
+    fluidRow(
+      style = "background-color: #bbbbbb",
+      
+      sliderInput("lightDateRange", "Date range:",
+                  min = lightTSBounds[1], max = lightTSBounds[2],
+                  value = lightTSBounds,
+                  timeFormat = "%Y-%m-%d %H:%M:%S")
+    )
   ),
-  fluidRow(
-    id = "movementParams",
-    style = "background-color: #bbbbbb",
-    
-    sliderInput("movementDateRange", "Date range:",
-                min = movementTSBounds[1], max = movementTSBounds[2],
-                value = movementTSBounds,
-                timeFormat = "%Y-%m-%d %H:%M:%S")
+  conditionalPanel(
+    condition = "plotSelect == 'Movement'",
+    fluidRow(
+      id = "movementParams",
+      style = "background-color: #bbbbbb",
+      
+      sliderInput("movementDateRange", "Date range:",
+                  min = movementTSBounds[1], max = movementTSBounds[2],
+                  value = movementTSBounds,
+                  timeFormat = "%Y-%m-%d %H:%M:%S")
+    )
   ),
-  fluidRow(
-    id = "wirelessParams",
-    style = "background-color: #bbbbbb",
-    
-    sliderInput("wirelessDateRange", "Date range:",
-                min = wirelessTSBounds[1], max = wirelessTSBounds[2],
-                value = wirelessTSBounds,
-                timeFormat = "%Y-%m-%d %H:%M:%S"),
-    
-    selectInput("wirelessConns", "Connections", unique(wireless$name)),
-    checkboxInput("wirelessAll", "Show All", value = TRUE)
+  conditionalPanel(
+    condition = "plotSelect == 'Wireless'",
+    fluidRow(
+      id = "wirelessParams",
+      style = "background-color: #bbbbbb",
+      
+      sliderInput("wirelessDateRange", "Date range:",
+                  min = wirelessTSBounds[1], max = wirelessTSBounds[2],
+                  value = wirelessTSBounds,
+                  timeFormat = "%Y-%m-%d %H:%M:%S"),
+      
+      selectInput("wirelessConns", "Connections", unique(wireless$name)),
+      checkboxInput("wirelessAll", "Show All", value = TRUE)
+    )
   ),
-  fluidRow(
-    id = "soundParams",
-    style = "background-color: #bbbbbb",
-    
-    sliderInput("soundDateRange", "Date range:",
-                min = soundTSBounds[1], max = soundTSBounds[2],
-                value = soundTSBounds,
-                timeFormat = "%Y-%m-%d %H:%M")
+  conditionalPanel(
+    condition = "plotSelect == 'Sound'",
+    fluidRow(
+      id = "soundParams",
+      style = "background-color: #bbbbbb",
+      
+      sliderInput("soundDateRange", "Date range:",
+                  min = soundTSBounds[1], max = soundTSBounds[2],
+                  value = soundTSBounds,
+                  timeFormat = "%Y-%m-%d %H:%M")
+    )
   ),
-  fluidRow(
-    id = "gpsParams",
-    style = "background-color: #bbbbbb",
-    
-    sliderInput("gpsDateRange", "Date range:",
-                min = gpsTSBounds[1], max = gpsTSBounds[2],
-                value = gpsTSBounds,
-                timeFormat = "%Y-%m-%d %H:%M:%S")
+  conditionalPanel(
+    condition = "plotSelect == 'GPS'",
+    fluidRow(
+      id = "gpsParams",
+      style = "background-color: #bbbbbb",
+      
+      sliderInput("gpsDateRange", "Date range:",
+                  min = gpsTSBounds[1], max = gpsTSBounds[2],
+                  value = gpsTSBounds,
+                  timeFormat = "%Y-%m-%d %H:%M:%S")
+    )
   ),
   fluidRow(
     style = "background-color: #ddddff",
@@ -154,34 +168,6 @@ ui <- fluidPage(
 print("Creating Server...")
 
 server <- function(input, output, session) {
-  
-  observeEvent(input$plotSelect, {
-    if (input$plotSelect == "Light") {
-      show("lightParams")
-    } else {
-      hide("lightParams")
-    }
-    if (input$plotSelect == "Movement") {
-      show("movementParams")
-    } else {
-      hide("movementParams")
-    }
-    if (input$plotSelect == "Wireless") {
-      show("wirelessParams")
-    } else {
-      hide("wirelessParams")
-    }
-    if (input$plotSelect == "Sound") {
-      show("soundParams")
-    } else {
-      hide("soundParams")
-    }
-    if (input$plotSelect == "GPS") {
-      show("gpsParams")
-    } else {
-      hide("gpsParams")
-    }
-  })
   
   observeEvent(input$wirelessAll, {
     if (input$wirelessAll) {
