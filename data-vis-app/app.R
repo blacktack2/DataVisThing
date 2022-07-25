@@ -98,7 +98,7 @@ ui <- fluidPage(
     )
   ),
   conditionalPanel(
-    condition = "plotSelect == 'Light'",
+    condition = "input.plotSelect == 'Light'",
     fluidRow(
       style = "background-color: #bbbbbb",
       
@@ -109,7 +109,7 @@ ui <- fluidPage(
     )
   ),
   conditionalPanel(
-    condition = "plotSelect == 'Movement'",
+    condition = "input.plotSelect == 'Movement'",
     fluidRow(
       id = "movementParams",
       style = "background-color: #bbbbbb",
@@ -121,7 +121,7 @@ ui <- fluidPage(
     )
   ),
   conditionalPanel(
-    condition = "plotSelect == 'Wireless'",
+    condition = "input.plotSelect == 'Wireless'",
     fluidRow(
       id = "wirelessParams",
       style = "background-color: #bbbbbb",
@@ -136,7 +136,7 @@ ui <- fluidPage(
     )
   ),
   conditionalPanel(
-    condition = "plotSelect == 'Sound'",
+    condition = "input.plotSelect == 'Sound'",
     fluidRow(
       id = "soundParams",
       style = "background-color: #bbbbbb",
@@ -148,7 +148,7 @@ ui <- fluidPage(
     )
   ),
   conditionalPanel(
-    condition = "plotSelect == 'GPS'",
+    condition = "input.plotSelect == 'GPS'",
     fluidRow(
       id = "gpsParams",
       style = "background-color: #bbbbbb",
