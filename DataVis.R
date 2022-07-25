@@ -19,6 +19,7 @@ reinstall("anytime")
 reinstall("dplyr")
 reinstall("ggplot2")
 reinstall("tidyr")
+reinstall("data.table")
 reinstall("purrr")
 reinstall("tibble")
 
