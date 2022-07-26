@@ -82,6 +82,9 @@ soundTSBounds    <- get_bounds(sound$timestamp)
 gpsTSBounds      <- get_bounds(gps$timestamp)
 
 wirelessNames    <- unique(wireless$name)
+wirelessNameColors <- setNames(topo.colors(length(wirelessNames)), wirelessNames)
+
+# wireless$nameColors <- lapply(wireless$name, function(x) wirelessNameColors[x])
 
 print("Creating UI...")
 
@@ -135,7 +138,14 @@ ui <- fluidPage(
       
       checkboxInput("wirelessAll", "Select All", value = TRUE),
       checkboxInput("wirelessNone", "Deselect All", value = FALSE),
-      checkboxGroupInput("wirelessConns", "Connections:", wirelessNames, wirelessNames, inline = TRUE)
+      checkboxGroupInput("wirelessConns", "Connections:",
+                         selected = wirelessNames,
+                         inline = TRUE,
+                         choiceNames = lapply(
+                           wirelessNames,
+                           function (x) span(x, style = paste0("color: ", wirelessNameColors[x]))
+                         ),
+                         choiceValues = wirelessNames)
     )
   ),
   conditionalPanel(
@@ -182,18 +192,42 @@ server <- function(input, output, session) {
   }, ignoreInit = TRUE)
   
   output$lightPlot <- renderPlot({
-    line_graph(light, input$lightDateRange, aes(x = timestamp, y = light), FALSE)
+    data <- subset(light, as.POSIXct.Date(timestamp) %between%
+                     as.POSIXct.Date(input$lightDateRange, "UTC"))
+    
+    ggplot(data = data, aes(x = timestamp, y = light)) +
+      {if(nrow(data) == 1) geom_point() else geom_line(show.legend = FALSE)} +
+      scale_x_datetime_(light, input$lightDateRange) +
+      theme_()
   })
   output$movementPlot <- renderPlot({
-    line_graph(movement, input$movementDateRange, aes(x = timestamp, y = f), FALSE)
+    data <- subset(movement, as.POSIXct.Date(timestamp) %between%
+                     as.POSIXct.Date(input$movementDateRange, "UTC"))
+    
+    ggplot(data = data, aes(x = timestamp, y = f)) +
+      {if(nrow(data) == 1) geom_point() else geom_line(show.legend = FALSE)} +
+      scale_x_datetime_(movement, input$movementDateRange) +
+      theme_()
   })
   output$wirelessPlot <- renderPlot({
-    data <- group_by(subset(wireless, name %in% input$wirelessConns), name)
+    data <- subset(wireless, name %in% input$wirelessConns)
+    data <- subset(data, as.POSIXct.Date(timestamp) %between%
+                     as.POSIXct.Date(input$wirelessDateRange, "UTC"))
     
-    line_graph(data, input$wirelessDateRange, aes(x = timestamp, y = rssi, color = name), (nrow(data) == 1))
+    ggplot(data = data, aes(x = timestamp, y = rssi, group = name, color = name)) +
+      {if(nrow(data) == 1) geom_point() else geom_line(show.legend = FALSE)} +
+      scale_x_datetime_(data, input$wirelessDateRange) +
+      theme_() +
+      scale_color_manual(values = wirelessNameColors)
   })
   output$soundPlot <- renderPlot({
-    line_graph(sound, input$soundDateRange, aes(x = timestamp, y = f), FALSE) +
+    data <- subset(sound, as.POSIXct.Date(timestamp) %between%
+                     as.POSIXct.Date(input$soundDateRange, "UTC"))
+    
+    ggplot(data = data, aes(x = timestamp, y = f)) +
+      geom_line(show.legend = FALSE) +
+      scale_x_datetime_(sound, input$soundDateRange) +
+      theme_() +
       ylab("Frequency (Hz)")
   })
   
@@ -223,12 +257,12 @@ server <- function(input, output, session) {
     }
   })
   
-  line_graph <- function(data, range, aes, as_point) {
-    return(ggplot(data = data, aes) +
-      {if(as_point) geom_point() else geom_line(show.legend = FALSE)} +
-      scale_x_datetime(limits = range,
-                       breaks = seq(range[1], range[2], length.out = 8)) +
-      theme(axis.text.x = element_text(angle = 30, hjust = 1)))
+  scale_x_datetime_ <- function(data, range) {
+    return (scale_x_datetime(limits = range,
+                             breaks = seq(range[1], range[2], length.out = 8)))
+  }
+  theme_ <- function() {
+    return (theme(axis.text.x = element_text(angle = 30, hjust = 1)))
   }
 }
 
