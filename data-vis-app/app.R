@@ -11,6 +11,75 @@ library("data.table")
 library("purrr")
 library("tibble")
 
+print("Defining Constants...")
+
+graphHeight <- "400px"
+inputAreaColor <- "#bbbbbb"
+
+dateRangeSliderIDs <- c() # Populated in plotRow during creation of UI
+
+print("Defining functions...")
+
+plotRow <- function(idPrefix, name, ..., plotType = plotOutput) {
+  toggleID <- sprintf("%sToggle"   , idPrefix)
+  sliderID <- sprintf("%sDateRange", idPrefix)
+  plotID   <- sprintf("%sPlot"     , idPrefix)
+  
+  dateRangeSliderIDs <<- append(dateRangeSliderIDs, sliderID)
+  
+  return(
+    fluidRow(
+      fluidRow(
+        style = "background-color: #888888; padding-left: 20px; border: 1px solid #666666",
+        checkboxInput(toggleID, name, value = TRUE),
+      ),
+      conditionalPanel(
+        condition = sprintf("input.%s == 1", toggleID),
+        fluidRow(
+          column(
+            3,
+            style = sprintf(
+              "background-color: %s;
+              padding-left: 20px;
+              height: %s;
+              overflow-x: hidden;
+              overflow-y: scroll",
+              inputAreaColor, graphHeight
+            ),
+            sliderInput(sliderID, "Date range:",
+                        min = dataTSBounds[1], max = dataTSBounds[2],
+                        value = dataTSBounds,
+                        timeFormat = "%Y-%m-%d %H:%M:%S",
+                        width="100%"),
+            ...
+          ),
+          column(
+            9,
+            plotType(plotID, height = graphHeight)
+          )
+        )
+      )
+    )
+  )
+}
+
+inlineCheckbox <- function(checkbox) {
+  return(
+    span(style = "display: inline-block; width: inherit", checkbox)
+  )
+}
+
+# Remove all columns with only NA and the type column
+clean_columns <- function(df) {
+  cleaned <- Filter(function(x)!all(is.na(x)), df)
+  cleaned <- subset(cleaned, select = -c(dtype))
+  return(cleaned)
+}
+
+get_bounds <- function(collection) {
+  return(if (length(collection) < 1) c(0, 0) else c(min(collection), max(collection)))
+}
+
 print("Loading Data...")
 
 # Load and combine all json datasets into a single dataframe
@@ -56,13 +125,6 @@ df$timestamp <- anytime(df$timestamp)
 
 print("--Timestamps converted from unix epoch to datetime")
 
-# Remove all columns with only NA and the type column
-clean_columns <- function(df) {
-  cleaned <- Filter(function(x)!all(is.na(x)), df)
-  cleaned <- subset(cleaned, select = -c(dtype))
-  return(cleaned)
-}
-
 # Split data into it's different types
 light    <- subset(df, dtype == "light"   )[c("timestamp", "light")]
 movement <- subset(df, dtype == "movement")[c("timestamp", "x", "y", "z", "f")]
@@ -71,20 +133,16 @@ sound    <- subset(df, dtype == "sound"   )[c("timestamp", "f")]
 gps      <- subset(df, dtype == "gps"     )[c("timestamp", "lat", "lon")]
 
 # Global convenience variables for the data
-get_bounds <- function(collection) {
-  return(if (length(collection) < 1) c(0, 0) else c(min(collection), max(collection)))
-}
-
 lightTSBounds    <- get_bounds(light$timestamp)
 movementTSBounds <- get_bounds(movement$timestamp)
 wirelessTSBounds <- get_bounds(wireless$timestamp)
 soundTSBounds    <- get_bounds(sound$timestamp)
 gpsTSBounds      <- get_bounds(gps$timestamp)
 
+dataTSBounds     <- get_bounds(df$timestamp)
+
 wirelessNames    <- unique(wireless$name)
 wirelessNameColors <- setNames(topo.colors(length(wirelessNames)), wirelessNames)
-
-# wireless$nameColors <- lapply(wireless$name, function(x) wirelessNameColors[x])
 
 print("Creating UI...")
 
@@ -93,85 +151,35 @@ ui <- fluidPage(
   titlePanel("Data Vis"),
   
   fluidRow(
-    tabsetPanel(
-      id = "plotSelect",
-      tabPanel("Light",    plotOutput("lightPlot")),
-      tabPanel("Movement", plotOutput("movementPlot")),
-      tabPanel("Wireless", plotOutput("wirelessPlot")),
-      tabPanel("Sound",    plotOutput("soundPlot")),
-      tabPanel("GPS",      leafletOutput("gpsPlot"))
-    )
+    style = sprintf(
+      "background-color: %s;
+      padding-left: 20px;",
+      inputAreaColor
+    ),
+    sliderInput(
+      "globalDateRange", "Date Range (All):",
+      min = dataTSBounds[1], max = dataTSBounds[2],
+      value = dataTSBounds,
+      timeFormat = "%Y-%m-%d %H:%M:%S",
+      width="100%")
   ),
-  conditionalPanel(
-    condition = "input.plotSelect == 'Light'",
-    fluidRow(
-      style = "background-color: #bbbbbb",
-      
-      sliderInput("lightDateRange", "Date range:",
-                  min = lightTSBounds[1], max = lightTSBounds[2],
-                  value = lightTSBounds,
-                  timeFormat = "%Y-%m-%d %H:%M:%S")
-    )
-  ),
-  conditionalPanel(
-    condition = "input.plotSelect == 'Movement'",
-    fluidRow(
-      id = "movementParams",
-      style = "background-color: #bbbbbb",
-      
-      sliderInput("movementDateRange", "Date range:",
-                  min = movementTSBounds[1], max = movementTSBounds[2],
-                  value = movementTSBounds,
-                  timeFormat = "%Y-%m-%d %H:%M:%S")
-    )
-  ),
-  conditionalPanel(
-    condition = "input.plotSelect == 'Wireless'",
-    fluidRow(
-      id = "wirelessParams",
-      style = "background-color: #bbbbbb",
-      
-      sliderInput("wirelessDateRange", "Date range:",
-                  min = wirelessTSBounds[1], max = wirelessTSBounds[2],
-                  value = wirelessTSBounds,
-                  timeFormat = "%Y-%m-%d %H:%M:%S"),
-      
-      checkboxInput("wirelessAll", "Select All", value = TRUE),
-      checkboxInput("wirelessNone", "Deselect All", value = FALSE),
-      checkboxGroupInput("wirelessConns", "Connections:",
-                         selected = wirelessNames,
-                         inline = TRUE,
-                         choiceNames = lapply(
-                           wirelessNames,
-                           function (x) span(x, style = paste0("color: ", wirelessNameColors[x]))
-                         ),
-                         choiceValues = wirelessNames)
-    )
-  ),
-  conditionalPanel(
-    condition = "input.plotSelect == 'Sound'",
-    fluidRow(
-      id = "soundParams",
-      style = "background-color: #bbbbbb",
-      
-      sliderInput("soundDateRange", "Date range:",
-                  min = soundTSBounds[1], max = soundTSBounds[2],
-                  value = soundTSBounds,
-                  timeFormat = "%Y-%m-%d %H:%M")
-    )
-  ),
-  conditionalPanel(
-    condition = "input.plotSelect == 'GPS'",
-    fluidRow(
-      id = "gpsParams",
-      style = "background-color: #bbbbbb",
-      
-      sliderInput("gpsDateRange", "Date range:",
-                  min = gpsTSBounds[1], max = gpsTSBounds[2],
-                  value = gpsTSBounds,
-                  timeFormat = "%Y-%m-%d %H:%M:%S")
-    )
-  ),
+  
+  plotRow("light", "Light"),
+  plotRow("movement", "Movement"),
+  plotRow("wireless", "Wireless",
+          inlineCheckbox(checkboxInput("wirelessAll", "Select All", value = TRUE)),
+          inlineCheckbox(checkboxInput("wirelessNone", "Deselect All", value = FALSE)),
+          checkboxGroupInput("wirelessConns", "Connections:",
+                             selected = wirelessNames,
+                             inline = TRUE,
+                             choiceNames = lapply(
+                               wirelessNames,
+                               function (x) span(x, style = paste0("color: ", wirelessNameColors[x]))
+                             ),
+                             choiceValues = wirelessNames)),
+  plotRow("sound", "Sound"),
+  plotRow("gps", "GPS", plotType = leafletOutput),
+  
   fluidRow(
     style = "background-color: #ddddff",
     tagList(a("GitHub page", href="https://github.com/blacktack2/DataVisThing"))
@@ -181,6 +189,12 @@ ui <- fluidPage(
 print("Creating Server...")
 
 server <- function(input, output, session) {
+  
+  observeEvent(input$globalDateRange, {
+    for (slider in dateRangeSliderIDs) {
+      updateSliderInput(session, slider, value = input$globalDateRange)
+    }
+  })
   
   observeEvent(input$wirelessAll, {
     updateCheckboxInput(session, "wirelessAll", value = TRUE)
@@ -196,7 +210,7 @@ server <- function(input, output, session) {
                      as.POSIXct.Date(input$lightDateRange, "UTC"))
     
     ggplot(data = data, aes(x = timestamp, y = light)) +
-      {if(nrow(data) == 1) geom_point() else geom_line(show.legend = FALSE)} +
+      geom_line_point_(data) +
       scale_x_datetime_(light, input$lightDateRange) +
       theme_()
   })
@@ -205,7 +219,7 @@ server <- function(input, output, session) {
                      as.POSIXct.Date(input$movementDateRange, "UTC"))
     
     ggplot(data = data, aes(x = timestamp, y = f)) +
-      {if(nrow(data) == 1) geom_point() else geom_line(show.legend = FALSE)} +
+      geom_line_point_(data) +
       scale_x_datetime_(movement, input$movementDateRange) +
       theme_()
   })
@@ -215,7 +229,7 @@ server <- function(input, output, session) {
                      as.POSIXct.Date(input$wirelessDateRange, "UTC"))
     
     ggplot(data = data, aes(x = timestamp, y = rssi, group = name, color = name)) +
-      {if(nrow(data) == 1) geom_point() else geom_line(show.legend = FALSE)} +
+      geom_line_point_(data) +
       scale_x_datetime_(data, input$wirelessDateRange) +
       theme_() +
       scale_color_manual(values = wirelessNameColors)
@@ -225,7 +239,7 @@ server <- function(input, output, session) {
                      as.POSIXct.Date(input$soundDateRange, "UTC"))
     
     ggplot(data = data, aes(x = timestamp, y = f)) +
-      geom_line(show.legend = FALSE) +
+      geom_line_point_(data) +
       scale_x_datetime_(sound, input$soundDateRange) +
       theme_() +
       ylab("Frequency (Hz)")
@@ -240,7 +254,7 @@ server <- function(input, output, session) {
   })
   
   observe({
-    if (input$plotSelect == "GPS") {
+    if (input$gpsToggle == 1) {
       data <- subset(gps, as.POSIXct.Date(timestamp) %between%
                           as.POSIXct.Date(input$gpsDateRange, "UTC"))
 
@@ -257,6 +271,9 @@ server <- function(input, output, session) {
     }
   })
   
+  geom_line_point_ <- function(data) {
+    return ({if(nrow(data) == 1) geom_point(show.legend = FALSE) else geom_line(show.legend = FALSE)})
+  }
   scale_x_datetime_ <- function(data, range) {
     return (scale_x_datetime(limits = range,
                              breaks = seq(range[1], range[2], length.out = 8)))
