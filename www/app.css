@@ -1,0 +1,22 @@
+.row {
+  margin: 0px;
+}
+
+.container-fluid {
+  padding: 0px;
+}
+
+.input-area {
+  background-color: #bbbbbb;
+  padding: 0px 20px 0px 20px;
+}
+
+.graph-input {
+  height: 400px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
+.date-slider {
+  background: linear-gradient(to right, #000 0%, #FFF 100%);
+}
