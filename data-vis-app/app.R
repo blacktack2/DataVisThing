@@ -16,8 +16,8 @@ print("Defining Constants...")
 graphHeight <- "400px"
 
 normalPalette <- topo.colors
-dayColorHigh  <- topo.colors(2)[1]
-dayColorLow   <- topo.colors(2)[2]
+dayColorLow   <- topo.colors(2)[1]
+dayColorHigh  <- topo.colors(2)[2]
 
 dateRangeSliderIDs <- c() # Populated in plotRow during creation of UI
 
@@ -43,6 +43,7 @@ plotRow <- function(idPrefix, name, ..., plotType = plotOutput) {
           column(
             3,
             class = "input-area graph-input",
+            #  Becomes Time range when DayMode is enabled
             sliderInput(dateTimeID, "Date range:",
                         min = dataTSBounds[1], max = dataTSBounds[2],
                         value = dataTSBounds,
@@ -50,11 +51,14 @@ plotRow <- function(idPrefix, name, ..., plotType = plotOutput) {
                         width="100%", step = 1),
             conditionalPanel(
               condition = "input.dateMode == 1",
-              sliderInput(dateID, "Date range:",
-                          min = dataDateBounds[1], max = dataDateBounds[2],
-                          value = range(dataDateBounds),
-                          timeFormat = "%Y-%m-%d",
-                          width = "100%", step = 1)
+              tagAppendAttributes(
+                sliderInput(dateID, "Date range:",
+                            min = dataDateBounds[1], max = dataDateBounds[2],
+                            value = range(dataDateBounds),
+                            timeFormat = "%Y-%m-%d",
+                            width = "100%", step = 1),
+                class = "date-slider"
+              )
             ),
             ...
           ),
@@ -196,6 +200,11 @@ wirelessNameColors <- setNames(normalPalette(length(wirelessNames)), wirelessNam
 print("Creating UI...")
 
 ui <- fluidPage(
+  tags$style(sprintf(
+  ":root {
+    --date-slider-gradient: linear-gradient(to right, %s 0%%, %s 100%%);
+  }",
+  dayColorLow, dayColorHigh)),
   tags$head(includeCSS("../www/app.css")),
   useShinyjs(),
   titlePanel("Data Vis"),

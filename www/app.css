@@ -17,6 +17,6 @@
   overflow-y: scroll;
 }
 
-.date-slider {
-  background: linear-gradient(to right, #000 0%, #FFF 100%);
+.date-slider > span > span.irs-bar {
+  background: var(--date-slider-gradient);
 }
